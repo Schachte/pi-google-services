@@ -17,7 +17,43 @@ import (
 
 // Service wraps the Gmail API client.
 type Service struct {
+	svc    *gmail.UsersService
+	lister messagesLister
+}
+
+// messagesLister abstracts the messages.list + messages.get(metadata) calls so
+// pagination can be unit tested without hitting the network.
+type messagesLister interface {
+	listMessages(ctx context.Context, query string, maxResults int64, pageToken string, labelIDs []string) (*gmail.ListMessagesResponse, error)
+	getMessageMetadata(ctx context.Context, id string) (*gmail.Message, error)
+}
+
+// gmailAPIBackend is the real messagesLister implementation against the Gmail
+// HTTP API.
+type gmailAPIBackend struct {
 	svc *gmail.UsersService
+}
+
+func (b *gmailAPIBackend) listMessages(ctx context.Context, query string, maxResults int64, pageToken string, labelIDs []string) (*gmail.ListMessagesResponse, error) {
+	call := b.svc.Messages.List("me").
+		MaxResults(maxResults)
+	if query != "" {
+		call.Q(query)
+	}
+	if len(labelIDs) > 0 {
+		call.LabelIds(labelIDs...)
+	}
+	if pageToken != "" {
+		call.PageToken(pageToken)
+	}
+	return call.Do()
+}
+
+func (b *gmailAPIBackend) getMessageMetadata(ctx context.Context, id string) (*gmail.Message, error) {
+	return b.svc.Messages.Get("me", id).
+		Format("metadata").
+		MetadataHeaders("Subject", "From", "Date").
+		Do()
 }
 
 // EmailSummary is a lightweight email representation.
@@ -45,56 +81,22 @@ func New(ctx context.Context, ts oauth2.TokenSource) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create gmail service: %w", err)
 	}
-	return &Service{svc: svc.Users}, nil
+	return &Service{svc: svc.Users, lister: &gmailAPIBackend{svc: svc.Users}}, nil
 }
 
-// ListInbox returns recent messages from the inbox.
-func (s *Service) ListInbox(ctx context.Context, maxResults int64, query string) ([]*EmailSummary, error) {
-	if maxResults <= 0 {
-		maxResults = 20
-	}
+// ListResult is a page of messages plus pagination metadata.
+type ListResult struct {
+	Messages       []*EmailSummary
+	NextPageToken  string
+	ResultEstimate int64
+}
 
-	call := s.svc.Messages.List("me").
-		MaxResults(maxResults).
-		LabelIds("INBOX")
-	if query != "" {
-		call.Q(query)
-	}
-
-	res, err := call.Do()
-	if err != nil {
-		return nil, fmt.Errorf("list messages: %w", err)
-	}
-
-	summaries := make([]*EmailSummary, 0, len(res.Messages))
-	for _, m := range res.Messages {
-		msg, err := s.svc.Messages.Get("me", m.Id).
-			Format("metadata").
-			MetadataHeaders("Subject", "From", "Date").
-			Do()
-		if err != nil {
-			continue // skip unreadable messages
-		}
-
-		summary := &EmailSummary{
-			ID:       msg.Id,
-			ThreadID: msg.ThreadId,
-			Snippet:  msg.Snippet,
-			LabelIDs: msg.LabelIds,
-		}
-		for _, h := range msg.Payload.Headers {
-			switch h.Name {
-			case "Subject":
-				summary.Subject = h.Value
-			case "From":
-				summary.From = h.Value
-			case "Date":
-				summary.Date = h.Value
-			}
-		}
-		summaries = append(summaries, summary)
-	}
-	return summaries, nil
+// ListInbox returns recent messages from the inbox. pageToken resumes
+// pagination from a previous ListResult.NextPageToken; the result is
+// auto-paginated until maxResults messages are collected or the mailbox is
+// exhausted.
+func (s *Service) ListInbox(ctx context.Context, maxResults int64, query, pageToken string) (*ListResult, error) {
+	return s.searchMessages(ctx, query, maxResults, pageToken, "INBOX")
 }
 
 // GetEmail retrieves the full content of a message by ID.
@@ -151,9 +153,81 @@ func (s *Service) SendEmail(ctx context.Context, to, subject, body string, attac
 	return sent, nil
 }
 
-// SearchEmails searches messages by query.
-func (s *Service) SearchEmails(ctx context.Context, query string, maxResults int64) ([]*EmailSummary, error) {
-	return s.ListInbox(ctx, maxResults, query)
+// SearchEmails searches messages by query across the whole mailbox. Unlike
+// ListInbox it does NOT restrict to the INBOX label, so queries like
+// "in:sent", "to:someone@example.com" or "from:a OR from:b" match messages in
+// any label (Sent, Archive, etc.). pageToken resumes pagination from a
+// previous ListResult.NextPageToken.
+func (s *Service) SearchEmails(ctx context.Context, query string, maxResults int64, pageToken string) (*ListResult, error) {
+	return s.searchMessages(ctx, query, maxResults, pageToken)
+}
+
+// searchMessages lists messages matching query and/or labels, auto-paginating
+// with nextPageToken until maxResults are collected or the mailbox is
+// exhausted. labelIDs, when non-empty, are ANDed with the query (Gmail
+// labelIds semantics); leave empty to search every label.
+func (s *Service) searchMessages(ctx context.Context, query string, maxResults int64, pageToken string, labelIDs ...string) (*ListResult, error) {
+	if maxResults <= 0 {
+		maxResults = 20
+	}
+	if maxResults > 500 {
+		maxResults = 500
+	}
+	if s.lister == nil {
+		return nil, fmt.Errorf("list messages: lister not configured")
+	}
+
+	result := &ListResult{}
+
+	for int64(len(result.Messages)) < maxResults {
+		remaining := maxResults - int64(len(result.Messages))
+
+		res, err := s.lister.listMessages(ctx, query, remaining, pageToken, labelIDs)
+		if err != nil {
+			return nil, fmt.Errorf("list messages: %w", err)
+		}
+		// ResultSizeEstimate is the estimated total across pages, so keep the
+		// largest value rather than overwriting with a later page's estimate.
+		if res.ResultSizeEstimate > result.ResultEstimate {
+			result.ResultEstimate = res.ResultSizeEstimate
+		}
+		result.NextPageToken = res.NextPageToken
+
+		for _, m := range res.Messages {
+			msg, err := s.lister.getMessageMetadata(ctx, m.Id)
+			if err != nil {
+				continue // skip unreadable messages
+			}
+
+			summary := &EmailSummary{
+				ID:       msg.Id,
+				ThreadID: msg.ThreadId,
+				Snippet:  msg.Snippet,
+				LabelIDs: msg.LabelIds,
+			}
+			for _, h := range msg.Payload.Headers {
+				switch h.Name {
+				case "Subject":
+					summary.Subject = h.Value
+				case "From":
+					summary.From = h.Value
+				case "Date":
+					summary.Date = h.Value
+				}
+			}
+			result.Messages = append(result.Messages, summary)
+			if int64(len(result.Messages)) >= maxResults {
+				break
+			}
+		}
+
+		if res.NextPageToken == "" {
+			break
+		}
+		pageToken = res.NextPageToken
+	}
+
+	return result, nil
 }
 
 // --- helpers ---

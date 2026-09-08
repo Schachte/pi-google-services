@@ -113,6 +113,7 @@ Examples:
 Arguments:
 - `maxResults` — max emails (default: 20)
 - `query` — optional Gmail search filter
+- `pageToken` — pagination token to get the next page (from a previous result)
 
 ### `get-email`
 Read a full email by ID.
@@ -125,16 +126,18 @@ Arguments:
 - `id` (required) — email message ID
 
 ### `search-emails`
-Search emails with Gmail syntax.
+Search emails with Gmail syntax across the whole mailbox (sent, inbox, etc.).
 
 Examples:
 - "buscá emails de belo"
 - "encontrá mails sobre 'Uber' de esta semana"
 - "mostrame los no leídos"
+- "mostrame los emails que envié en agosto" (`query: in:sent after:2026/08/01`)
 
 Arguments:
 - `query` (required) — Gmail search query
 - `maxResults` — max results (default: 20)
+- `pageToken` — pagination token to get the next page (from a previous result)
 
 ### `send-email`
 Send a new email with optional file attachments.

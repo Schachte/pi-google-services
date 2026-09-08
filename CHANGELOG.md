@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.20
+
+- **Fix (bug crítico): `search-emails` ya no restringe al label INBOX** — `SearchEmails` delegaba en `ListInbox`, que siempre aplicaba `labelIds=INBOX`. La API de Gmail combina `labelIds` y `q` con AND, así que toda búsqueda quedaba limitada a mensajes que además estuvieran en la bandeja de entrada. Por eso `in:sent`, `in:sent after:2026/09/01`, `to:alguien@gmail.com` y `from:a OR from:b` devolvían "No results" aunque los mensajes existieran, y `in:sent after:2026/08/01` solo devolvía los autoenviados (que están en INBOX y SENT). Ahora `search-emails` busca en todo el mailbox.
+- **Feature: paginación real** — `list-inbox` y `search-emails` aceptan `pageToken` y avisan cuando hay más resultados (devolviendo el token para continuar). Internamente se pagina con `nextPageToken` hasta completar `maxResults` (máx. 500).
+- **Refactor: `gmail.Service` usa una `messagesLister`** — abstrae `messages.list` + `messages.get` para poder testear la paginación sin red.
+
 ## v0.1.19
 
 - **Feature: headless login (`--no-browser`)** — `login` and `setup` now accept `--no-browser` for machines without a browser (SSH, VPS, containers, WSL with broken localhost forwarding). The tool prints the authorization URL; you open it on any device (phone included), approve, and paste back the redirected URL. PKCE is preserved end-to-end.

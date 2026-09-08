@@ -47,6 +47,7 @@ func (s *GmailService) Tools() []mcp.ToolDefinition {
 				Properties: map[string]mcp.PropertySchema{
 					"maxResults": {Type: "number", Description: "Max emails (default: 20)", Default: 20},
 					"query":      {Type: "string", Description: "Optional search filter"},
+					"pageToken":  {Type: "string", Description: "Pagination token to get the next page (from a previous result)"},
 				},
 			},
 		},
@@ -63,12 +64,13 @@ func (s *GmailService) Tools() []mcp.ToolDefinition {
 		},
 		{
 			Name:        "search-emails",
-			Description: "Search emails by query",
+			Description: "Search emails by query across the whole mailbox (sent, inbox, etc.)",
 			InputSchema: mcp.InputSchema{
 				Type: "object",
 				Properties: map[string]mcp.PropertySchema{
 					"query":      {Type: "string", Description: "Search query (Gmail syntax)"},
 					"maxResults": {Type: "number", Description: "Max results (default: 20)", Default: 20},
+					"pageToken":  {Type: "string", Description: "Pagination token to get the next page (from a previous result)"},
 				},
 				Required: []string{"query"},
 			},
@@ -148,25 +150,30 @@ func (s *GmailService) handleListInbox(ctx context.Context, params json.RawMessa
 	var args struct {
 		MaxResults int64  `json:"maxResults"`
 		Query      string `json:"query"`
+		PageToken  string `json:"pageToken"`
 	}
 	if err := json.Unmarshal(params, &args); err != nil {
 		return nil, &mcp.RPCError{Code: -32602, Message: "Invalid arguments", Data: err.Error()}
 	}
 
-	msgs, err := s.api.ListInbox(ctx, args.MaxResults, args.Query)
+	res, err := s.api.ListInbox(ctx, args.MaxResults, args.Query, args.PageToken)
 	if err != nil {
 		return nil, &mcp.RPCError{Code: -32603, Message: "Failed to list inbox", Data: err.Error()}
 	}
 
 	var b strings.Builder
-	if len(msgs) == 0 {
+	if len(res.Messages) == 0 {
 		b.WriteString("📭 Inbox vacío.")
 	} else {
-		for i, m := range msgs {
+		for i, m := range res.Messages {
 			date := gmail.HumanDate(m.Date)
 			b.WriteString(fmt.Sprintf("%d. %s\n   📧 %s\n   👤 %s  🕐 %s\n   💬 %s\n",
 				i+1, m.Subject, m.ID, m.From, date, m.Snippet))
 		}
+	}
+
+	if res.NextPageToken != "" {
+		b.WriteString(fmt.Sprintf("\nHay más resultados. Para la siguiente página, usá pageToken=%q.", res.NextPageToken))
 	}
 
 	return contentResponse(b.String()), nil
@@ -206,6 +213,7 @@ func (s *GmailService) handleSearchEmails(ctx context.Context, params json.RawMe
 	var args struct {
 		Query      string `json:"query"`
 		MaxResults int64  `json:"maxResults"`
+		PageToken  string `json:"pageToken"`
 	}
 	if err := json.Unmarshal(params, &args); err != nil {
 		return nil, &mcp.RPCError{Code: -32602, Message: "Invalid arguments", Data: err.Error()}
@@ -214,20 +222,24 @@ func (s *GmailService) handleSearchEmails(ctx context.Context, params json.RawMe
 		return nil, &mcp.RPCError{Code: -32602, Message: "query required"}
 	}
 
-	msgs, err := s.api.SearchEmails(ctx, args.Query, args.MaxResults)
+	res, err := s.api.SearchEmails(ctx, args.Query, args.MaxResults, args.PageToken)
 	if err != nil {
 		return nil, &mcp.RPCError{Code: -32603, Message: "Failed to search", Data: err.Error()}
 	}
 
 	var b strings.Builder
-	if len(msgs) == 0 {
+	if len(res.Messages) == 0 {
 		b.WriteString("No results.")
 	} else {
-		for i, m := range msgs {
+		for i, m := range res.Messages {
 			date := gmail.HumanDate(m.Date)
 			b.WriteString(fmt.Sprintf("%d. [%s] %s\n   From: %s  %s\n   %s\n",
 				i+1, m.ID, m.Subject, m.From, date, m.Snippet))
 		}
+	}
+
+	if res.NextPageToken != "" {
+		b.WriteString(fmt.Sprintf("\nHay más resultados. Usá pageToken=%q para la siguiente página.", res.NextPageToken))
 	}
 
 	return contentResponse(b.String()), nil
