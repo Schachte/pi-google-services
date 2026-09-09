@@ -123,7 +123,20 @@ async function ensureBinary() {
 
 	fs.mkdirSync(BIN_DIR, { recursive: true });
 	const binary = zlib.gunzipSync(compressed);
-	fs.writeFileSync(BIN_PATH, binary, { mode: 0o755 });
+	// Write to a temp file and rename over the target. On Linux you cannot
+	// overwrite an executable that is currently running (ETXTBSY: text file
+	// busy), but rename atomically swaps the directory entry, so the running
+	// process keeps its old inode and the next launch picks up the new binary.
+	const tmpPath = `${BIN_PATH}.tmp-${process.pid}`;
+	fs.writeFileSync(tmpPath, binary, { mode: 0o755 });
+	try {
+		fs.renameSync(tmpPath, BIN_PATH);
+	} catch (err) {
+		try {
+			fs.unlinkSync(tmpPath);
+		} catch {}
+		throw err;
+	}
 	console.log(`  ✓ Installed to ${BIN_PATH}`);
 }
 

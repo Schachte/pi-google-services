@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.21
+
+- **Fix: `pi update --extensions` ya no falla con ETXTBSY** — `install.js` sobrescribía el binario en `~/.local/bin` con `fs.writeFileSync`, que en Linux no puede reemplazar un ejecutable en uso (el MCP server corriendo). Ahora escribe a un archivo temporal y hace `rename` atómico sobre el destino: el proceso viejo conserva su inode y el siguiente arranque usa el binario nuevo. Mismo patrón que `downloadUpdate` en `main.go`.
+
 ## v0.1.20
 
 - **Fix (bug crítico): `search-emails` ya no restringe al label INBOX** — `SearchEmails` delegaba en `ListInbox`, que siempre aplicaba `labelIds=INBOX`. La API de Gmail combina `labelIds` y `q` con AND, así que toda búsqueda quedaba limitada a mensajes que además estuvieran en la bandeja de entrada. Por eso `in:sent`, `in:sent after:2026/09/01`, `to:alguien@gmail.com` y `from:a OR from:b` devolvían "No results" aunque los mensajes existieran, y `in:sent after:2026/08/01` solo devolvía los autoenviados (que están en INBOX y SENT). Ahora `search-emails` busca en todo el mailbox.
