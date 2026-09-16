@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sombi/pi-google-services/internal/contacts"
-	"github.com/sombi/pi-google-services/internal/mcp"
+	"github.com/Schachte/pi-google-services/internal/contacts"
+	"github.com/Schachte/pi-google-services/internal/mcp"
 )
 
 // ContactsService implements the Service interface for Google Contacts.

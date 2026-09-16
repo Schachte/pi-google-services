@@ -1,4 +1,4 @@
-module github.com/sombi/pi-google-services
+module github.com/Schachte/pi-google-services
 
 go 1.25.8
 

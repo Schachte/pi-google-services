@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/sombi/pi-google-services/internal/config"
+	"github.com/Schachte/pi-google-services/internal/config"
 )
 
 func TestParseAuthCode(t *testing.T) {

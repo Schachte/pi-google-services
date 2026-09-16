@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sombi/pi-google-services/internal/calendar"
+	"github.com/Schachte/pi-google-services/internal/calendar"
 )
 
 // mockCalendarAPI implements calendar operations without real API calls.
@@ -101,8 +101,8 @@ func TestGmailServiceScopes(t *testing.T) {
 func TestGmailServiceTools(t *testing.T) {
 	gs := &GmailService{}
 	tools := gs.Tools()
-	if len(tools) != 5 {
-		t.Errorf("expected 5 tools, got %d", len(tools))
+	if len(tools) != 6 {
+		t.Errorf("expected 6 tools, got %d", len(tools))
 	}
 
 	names := make(map[string]bool)
@@ -110,7 +110,7 @@ func TestGmailServiceTools(t *testing.T) {
 		names[tool.Name] = true
 	}
 	for _, name := range []string{
-		"list-inbox", "get-email", "search-emails",
+		"count-unread-emails", "list-inbox", "get-email", "search-emails",
 		"send-email", "reply-to-email",
 	} {
 		if !names[name] {
@@ -209,8 +209,8 @@ func TestServiceToolsCount(t *testing.T) {
 	if calLen != 7 {
 		t.Errorf("Calendar: expected 7, got %d", calLen)
 	}
-	if gmailLen != 5 {
-		t.Errorf("Gmail: expected 5, got %d", gmailLen)
+	if gmailLen != 6 {
+		t.Errorf("Gmail: expected 6, got %d", gmailLen)
 	}
 	if tasksLen != 5 {
 		t.Errorf("Tasks: expected 5, got %d", tasksLen)
@@ -222,8 +222,8 @@ func TestServiceToolsCount(t *testing.T) {
 		t.Errorf("Contacts: expected 3, got %d", contactsLen)
 	}
 	total := calLen + gmailLen + tasksLen + driveLen + contactsLen
-	if total != 26 {
-		t.Errorf("Total tools: expected 26 (7+5+5+6+3), got %d", total)
+	if total != 27 {
+		t.Errorf("Total tools: expected 27 (7+6+5+6+3), got %d", total)
 	}
 }
 

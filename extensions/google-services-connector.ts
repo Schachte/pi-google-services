@@ -34,8 +34,8 @@ export default function (pi: ExtensionAPI) {
 		const hasMcp = pi.getCommands().some((cmd) => cmd.name === "mcp");
 		if (!hasMcp) {
 			pi.sendUserMessage(
-				"⚠️ pi-google-services: el comando /mcp no está disponible. " +
-					"Instalá pi-mcp-adapter (`pi install npm:pi-mcp-adapter`) y reiniciá la sesión.",
+				"⚠️ pi-google-services: the /mcp command is not available. " +
+					"Install pi-mcp-adapter (`pi install npm:pi-mcp-adapter`) and restart the session.",
 				{ deliverAs: "followUp" },
 			);
 			return;
@@ -45,8 +45,8 @@ export default function (pi: ExtensionAPI) {
 		const installed = await ensureBinary(pi);
 		if (!installed) {
 			pi.sendUserMessage(
-				"⚠️ pi-google-services: no se pudo instalar el binario. " +
-					`Corré manualmente: node ${INSTALLER_PATH}`,
+				"⚠️ pi-google-services: the binary could not be installed. " +
+					`Run manually: node ${INSTALLER_PATH}`,
 				{ deliverAs: "followUp" },
 			);
 			return;

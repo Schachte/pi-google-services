@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/sombi/pi-google-services/internal/mcp"
+	"github.com/Schachte/pi-google-services/internal/mcp"
 )
 
 // Service is the interface that every Google service (Calendar, Gmail, etc.)

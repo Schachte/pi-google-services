@@ -15,15 +15,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sombi/pi-google-services/internal/auth"
-	"github.com/sombi/pi-google-services/internal/calendar"
-	"github.com/sombi/pi-google-services/internal/config"
-	"github.com/sombi/pi-google-services/internal/contacts"
-	"github.com/sombi/pi-google-services/internal/drive"
-	"github.com/sombi/pi-google-services/internal/gmail"
-	"github.com/sombi/pi-google-services/internal/mcp"
-	"github.com/sombi/pi-google-services/internal/services"
-	"github.com/sombi/pi-google-services/internal/tasks"
+	"github.com/Schachte/pi-google-services/internal/auth"
+	"github.com/Schachte/pi-google-services/internal/calendar"
+	"github.com/Schachte/pi-google-services/internal/config"
+	"github.com/Schachte/pi-google-services/internal/contacts"
+	"github.com/Schachte/pi-google-services/internal/drive"
+	"github.com/Schachte/pi-google-services/internal/gmail"
+	"github.com/Schachte/pi-google-services/internal/mcp"
+	"github.com/Schachte/pi-google-services/internal/services"
+	"github.com/Schachte/pi-google-services/internal/tasks"
 )
 
 const version = "0.1.21"
@@ -159,36 +159,30 @@ func wantsNoBrowser(args []string) bool {
 func cmdLogin(noBrowser bool) {
 	credsData, err := getCredentialsJSON()
 	if err != nil {
-		fmt.Println("❌ No se encontraron credenciales.")
-		fmt.Println("   Seteá GOOGLE_OAUTH_CREDENTIALS o copiá credentials.json")
+		fmt.Println("❌ Credentials not found.")
+		fmt.Println("   Set GOOGLE_OAUTH_CREDENTIALS or copy credentials.json into place")
 		os.Exit(1)
 	}
 
 	a, err := newAuthenticator(credsData)
 	if err != nil {
-		log.Fatalf("Credenciales inválidas: %v", err)
+		log.Fatalf("Invalid credentials: %v", err)
 	}
 
 	ctx := context.Background()
 
-	fmt.Println("\n🔐 Autorizando con Google...")
+	fmt.Println("\n🔐 Authorizing with Google...")
 	if noBrowser {
-		fmt.Println("   Modo manual (--no-browser): vas a pegar la URL de autorización.")
+		fmt.Println("   Manual mode (--no-browser): paste the authorization URL.")
 	}
-	fmt.Printf("   Scopes solicitados: %d servicios\n", len(registeredServices()))
-	token, err := a.LoginWithOptions(ctx, auth.LoginOptions{NoBrowser: noBrowser})
+	fmt.Printf("   Scopes requested: %d services\n", len(registeredServices()))
+	_, err = a.LoginWithOptions(ctx, auth.LoginOptions{NoBrowser: noBrowser})
 	if err != nil {
-		log.Fatalf("Login falló: %v", err)
+		log.Fatalf("Login failed: %v", err)
 	}
 
-	showLen := len(token.AccessToken)
-	if showLen > 10 {
-		showLen = 10
-	}
-	fmt.Printf("\n✅ Login exitoso!\n")
-	fmt.Printf("   Access token: %s…\n", token.AccessToken[:showLen])
-	fmt.Printf("   Refresh token: %v\n", token.RefreshToken != "")
-	fmt.Printf("\nAhora corré:  %s serve\n", os.Args[0])
+	fmt.Printf("\n✅ Login successful!\n")
+	fmt.Printf("\nNow run:  %s serve\n", os.Args[0])
 }
 
 func cmdLogout() {
@@ -198,12 +192,12 @@ func cmdLogout() {
 	}
 	tokenPath := filepath.Join(dir, config.TokenFile)
 	if err := os.Remove(tokenPath); os.IsNotExist(err) {
-		fmt.Println("No hay credenciales.")
+		fmt.Println("No credentials stored.")
 		return
 	} else if err != nil {
-		log.Fatalf("Error al remover: %v", err)
+		log.Fatalf("Error removing: %v", err)
 	}
-	fmt.Println("✅ Credenciales eliminadas.")
+	fmt.Println("✅ Credentials removed.")
 }
 
 func cmdServe() {
@@ -212,7 +206,7 @@ func cmdServe() {
 		log.Fatalf("Token: %v", err)
 	}
 	if token == nil {
-		log.Fatal("❌ No autenticado. Corré 'pi-google-services login' primero.")
+		log.Fatal("❌ Not authenticated. Run 'pi-google-services login' first.")
 	}
 
 	// Always build the authenticator from client credentials with all scopes.
@@ -220,11 +214,11 @@ func cmdServe() {
 	// with the registered services (see issue #6).
 	credsData, err := getCredentialsJSON()
 	if err != nil {
-		log.Fatalf("credentials.json no encontrado: %v", err)
+		log.Fatalf("credentials.json not found: %v", err)
 	}
 	a, err := newAuthenticator(credsData)
 	if err != nil {
-		log.Fatalf("Credenciales inválidas: %v", err)
+		log.Fatalf("Invalid credentials: %v", err)
 	}
 
 	ctx := context.Background()
@@ -264,8 +258,8 @@ func cmdServe() {
 	registerServiceTools(server, services.NewDrive(driveSvc))
 	registerServiceTools(server, services.NewContacts(contactsSvc))
 
-	log.Println("✅ Google Services MCP server iniciado (stdio)")
-	log.Printf("   Tools registradas: %d\n", len(server.Tools()))
+	log.Println("✅ Google Services MCP server started (stdio)")
+	log.Printf("   Tools registered: %d\n", len(server.Tools()))
 
 	if err := server.Run(ctx); err != nil {
 		log.Fatalf("Server error: %v", err)
@@ -276,51 +270,50 @@ func cmdSetup(noBrowser bool) {
 	// Login flow
 	credsData, err := getCredentialsJSON()
 	if err != nil {
-		fmt.Println("❌ credentials.json no encontrado.")
-		fmt.Println("   Asegurate de haber instalado el package con: pi install npm:pi-google-services")
+		fmt.Println("❌ credentials.json not found.")
+		fmt.Println("   Make sure you installed the package with: pi install npm:pi-google-services")
 		os.Exit(1)
 	}
 
 	// Check if already authenticated
 	token, err := auth.LoadToken()
 	if err == nil && token != nil {
-		fmt.Println("✅ Ya autenticado.")
+		fmt.Println("✅ Already authenticated.")
 		fmt.Println()
-		fmt.Println("  Para conectar a Pi:")
-		fmt.Println("    1. Reiniciá la sesión de Pi")
-		fmt.Println("    2. Pedí: 'mostrame mis emails' o 'listá mis eventos'")
+		fmt.Println("  To connect to Pi:")
+		fmt.Println("    1. Restart the Pi session")
+		fmt.Println("    2. Try: 'show my emails' or 'list my events'")
 		return
 	}
 
 	a, err := newAuthenticator(credsData)
 	if err != nil {
-		log.Fatalf("Credenciales inválidas: %v", err)
+		log.Fatalf("Invalid credentials: %v", err)
 	}
 	ctx := context.Background()
 
-	fmt.Println("\n🔐 Autorizando con Google...")
+	fmt.Println("\n🔐 Authorizing with Google...")
 	if noBrowser {
-		fmt.Println("   Modo manual (--no-browser): vas a pegar la URL de autorización.")
+		fmt.Println("   Manual mode (--no-browser): paste the authorization URL.")
 	}
 	token, err = a.LoginWithOptions(ctx, auth.LoginOptions{NoBrowser: noBrowser})
 	if err != nil {
-		log.Fatalf("Login falló: %v", err)
+		log.Fatalf("Login failed: %v", err)
 	}
 
-	fmt.Printf("\n✅ Setup completo!\n")
-	fmt.Printf("  Token: %s…\n", token.AccessToken[:min(10, len(token.AccessToken))])
+	fmt.Printf("\n✅ Setup complete!\n")
 	fmt.Println()
-	fmt.Println("  Para empezar a usar:")
-	fmt.Println("    1. Reiniciá la sesión de Pi")
-	fmt.Println("    2. Pedí: 'mostrame mis emails' o 'creá un meet mañana a las 10'")
+	fmt.Println("  To start using it:")
+	fmt.Println("    1. Restart the Pi session")
+	fmt.Println("    2. Try: 'show my emails' or 'create a meet tomorrow at 10 AM'")
 }
 
 func cmdUpdate() {
-	fmt.Println("\n🔍 Buscando actualizaciones...")
+	fmt.Println("\n🔍 Checking for updates...")
 
 	latest, err := fetchLatestVersion()
 	if err != nil {
-		log.Fatalf("Error al buscar versión: %v", err)
+		log.Fatalf("Error checking for version: %v", err)
 	}
 
 	current := strings.TrimPrefix(version, "v")
@@ -328,23 +321,23 @@ func cmdUpdate() {
 
 	switch {
 	case latest == "" || latest == current:
-		fmt.Printf("✅ Ya tenés la última versión (%s)\n", version)
+		fmt.Printf("✅ You already have the latest version (%s)\n", version)
 		return
 	case compareVersions(latest, current) > 0:
-		fmt.Printf("📦 Versión nueva disponible: %s (actual: %s)\n", latest, version)
+		fmt.Printf("📦 New version available: %s (current: %s)\n", latest, version)
 		if err := downloadUpdate(latest); err != nil {
-			log.Fatalf("Error al actualizar: %v", err)
+			log.Fatalf("Update failed: %v", err)
 		}
-		fmt.Printf("\n✅ Actualizado a v%s\n", latest)
-		fmt.Println("   Reiniciá la sesión de Pi para usar la nueva versión.")
+		fmt.Printf("\n✅ Updated to v%s\n", latest)
+		fmt.Println("   Restart the Pi session to use the new version.")
 	default:
-		fmt.Printf("✅ Ya tenés la última versión (%s)\n", version)
+		fmt.Printf("✅ You already have the latest version (%s)\n", version)
 	}
 }
 
 func fetchLatestVersion() (string, error) {
 	// GitHub API: get latest release tag
-	resp, err := http.Get("https://api.github.com/repos/lucasvidela94/pi-google-services/releases/latest")
+	resp, err := http.Get("https://api.github.com/repos/Schachte/pi-google-services/releases/latest")
 	if err != nil {
 		return "", fmt.Errorf("github api: %w", err)
 	}
@@ -370,11 +363,11 @@ func downloadUpdate(version string) error {
 	case "linux-amd64", "linux-arm64", "darwin-arm64":
 		// supported
 	default:
-		return fmt.Errorf("plataforma no soportada: %s", plat)
+		return fmt.Errorf("unsupported platform: %s", plat)
 	}
 
-	url := fmt.Sprintf("https://github.com/lucasvidela94/pi-google-services/releases/download/v%s/pi-google-services-%s.gz", version, plat)
-	fmt.Printf("   ⬇ Descargando %s...\n", url)
+	url := fmt.Sprintf("https://github.com/Schachte/pi-google-services/releases/download/v%s/pi-google-services-%s.gz", version, plat)
+	fmt.Printf("   ⬇ Downloading %s...\n", url)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -470,24 +463,24 @@ func registerServiceTools(server *mcp.Server, svc services.Service) {
 func cmdStatus() {
 	token, err := auth.LoadToken()
 	if err != nil {
-		fmt.Println("⚠ Error al leer token:", err)
+		fmt.Println("⚠ Error reading token:", err)
 		return
 	}
 	if token == nil {
-		fmt.Println("❌ No autenticado.")
-		fmt.Println("   Corré: pi-google-services login")
+		fmt.Println("❌ Not authenticated.")
+		fmt.Println("   Run: pi-google-services login")
 		return
 	}
-	fmt.Println("✅ Autenticado")
+	fmt.Println("✅ Authenticated")
 	if !token.Expiry.IsZero() {
-		fmt.Printf("  Token expira: %s\n", token.Expiry.Format("2006-01-02 15:04 MST"))
+		fmt.Printf("  Token expires: %s\n", token.Expiry.Format("2006-01-02 15:04 MST"))
 		if token.Expiry.Before(time.Now()) {
-			fmt.Println("  ⚠ Token expirado, se renovará al iniciar serve")
+			fmt.Println("  ⚠ Token expired, it will be refreshed when serve starts")
 		}
 	}
-	fmt.Printf("\n  Servicios disponibles:\n")
+	fmt.Printf("\n  Available services:\n")
 	for _, svc := range registeredServices() {
 		fmt.Printf("    • %s (%d tools)\n", svc.Name(), len(svc.Tools()))
 	}
-	fmt.Printf("\n  Para iniciar: pi-google-services serve\n")
+	fmt.Printf("\n  To start: pi-google-services serve\n")
 }

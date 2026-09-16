@@ -39,10 +39,10 @@ No other third-party services are used.
 ## Open Source
 
 The full source code is available at:
-https://github.com/lucasvidela94/pi-google-services
+https://github.com/Schachte/pi-google-services
 
 You can audit every line of code that handles your data.
 
 ## Contact
 
-lucasan.videla@gmail.com
+https://github.com/Schachte/pi-google-services/issues

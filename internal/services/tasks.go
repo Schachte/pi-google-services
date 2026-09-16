@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sombi/pi-google-services/internal/mcp"
-	"github.com/sombi/pi-google-services/internal/tasks"
+	"github.com/Schachte/pi-google-services/internal/mcp"
+	"github.com/Schachte/pi-google-services/internal/tasks"
 )
 
 // TasksService implements the Service interface for Google Tasks.

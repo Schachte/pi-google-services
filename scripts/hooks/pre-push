@@ -13,9 +13,9 @@ while read local_ref local_sha remote_ref remote_sha; do
 
     if [ "$TAG_VERSION" != "$PKG_VER" ]; then
       echo ""
-      echo "❌ BLOCKED: Tag v${TAG_VERSION} pero package.json dice ${PKG_VER}"
+      echo "❌ BLOCKED: Tag v${TAG_VERSION} but package.json says ${PKG_VER}"
       echo ""
-      echo "   Corregí con:"
+      echo "   Fix it with:"
       echo "   sed -i 's/\"version\": \"${PKG_VER}\"/\"version\": \"${TAG_VERSION}\"/' package.json"
       echo "   git add package.json && git commit -m \"chore: bump to ${TAG_VERSION}\""
       echo "   git tag v${TAG_VERSION} -f && git push origin v${TAG_VERSION} -f"
@@ -23,7 +23,7 @@ while read local_ref local_sha remote_ref remote_sha; do
       exit 1
     fi
 
-    echo "✅ Tag v${TAG_VERSION} coincide con package.json"
+    echo "✅ Tag v${TAG_VERSION} matches package.json"
   fi
 done
 

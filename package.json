@@ -6,15 +6,15 @@
     "pi-package"
   ],
   "license": "MIT",
-  "author": "lucasvidela94",
+  "author": "Schachte",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lucasvidela94/pi-google-services.git"
+    "url": "git+https://github.com/Schachte/pi-google-services.git"
   },
   "bugs": {
-    "url": "https://github.com/lucasvidela94/pi-google-services/issues"
+    "url": "https://github.com/Schachte/pi-google-services/issues"
   },
-  "homepage": "https://github.com/lucasvidela94/pi-google-services",
+  "homepage": "https://github.com/Schachte/pi-google-services",
   "bin": {
     "pi-google-services": "./bin/pi-google-services"
   },

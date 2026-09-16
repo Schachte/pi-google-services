@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -162,10 +163,9 @@ func (s *Service) SearchEmails(ctx context.Context, query string, maxResults int
 	return s.searchMessages(ctx, query, maxResults, pageToken)
 }
 
-// searchMessages lists messages matching query and/or labels, auto-paginating
-// with nextPageToken until maxResults are collected or the mailbox is
-// exhausted. labelIDs, when non-empty, are ANDed with the query (Gmail
-// labelIds semantics); leave empty to search every label.
+// searchMessages lists message IDs matching query and/or labels, then fetches
+// metadata for each ID concurrently. Pagination is serial (page tokens chain),
+// but metadata retrieval uses a worker pool so listing many messages is fast.
 func (s *Service) searchMessages(ctx context.Context, query string, maxResults int64, pageToken string, labelIDs ...string) (*ListResult, error) {
 	if maxResults <= 0 {
 		maxResults = 20
@@ -177,10 +177,12 @@ func (s *Service) searchMessages(ctx context.Context, query string, maxResults i
 		return nil, fmt.Errorf("list messages: lister not configured")
 	}
 
-	result := &ListResult{}
+	var ids []string
+	var nextPageToken string
+	var resultEstimate int64
 
-	for int64(len(result.Messages)) < maxResults {
-		remaining := maxResults - int64(len(result.Messages))
+	for int64(len(ids)) < maxResults {
+		remaining := maxResults - int64(len(ids))
 
 		res, err := s.lister.listMessages(ctx, query, remaining, pageToken, labelIDs)
 		if err != nil {
@@ -188,35 +190,14 @@ func (s *Service) searchMessages(ctx context.Context, query string, maxResults i
 		}
 		// ResultSizeEstimate is the estimated total across pages, so keep the
 		// largest value rather than overwriting with a later page's estimate.
-		if res.ResultSizeEstimate > result.ResultEstimate {
-			result.ResultEstimate = res.ResultSizeEstimate
+		if res.ResultSizeEstimate > resultEstimate {
+			resultEstimate = res.ResultSizeEstimate
 		}
-		result.NextPageToken = res.NextPageToken
+		nextPageToken = res.NextPageToken
 
 		for _, m := range res.Messages {
-			msg, err := s.lister.getMessageMetadata(ctx, m.Id)
-			if err != nil {
-				continue // skip unreadable messages
-			}
-
-			summary := &EmailSummary{
-				ID:       msg.Id,
-				ThreadID: msg.ThreadId,
-				Snippet:  msg.Snippet,
-				LabelIDs: msg.LabelIds,
-			}
-			for _, h := range msg.Payload.Headers {
-				switch h.Name {
-				case "Subject":
-					summary.Subject = h.Value
-				case "From":
-					summary.From = h.Value
-				case "Date":
-					summary.Date = h.Value
-				}
-			}
-			result.Messages = append(result.Messages, summary)
-			if int64(len(result.Messages)) >= maxResults {
+			ids = append(ids, m.Id)
+			if int64(len(ids)) >= maxResults {
 				break
 			}
 		}
@@ -224,10 +205,139 @@ func (s *Service) searchMessages(ctx context.Context, query string, maxResults i
 		if res.NextPageToken == "" {
 			break
 		}
+		if int64(len(ids)) >= maxResults {
+			break
+		}
 		pageToken = res.NextPageToken
 	}
 
+	summaries, err := s.fetchSummaries(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ListResult{
+		Messages:       summaries,
+		ResultEstimate: resultEstimate,
+	}
+	// If we hit the cap and more pages exist, return the token so callers can
+	// resume. Otherwise leave it empty.
+	if int64(len(ids)) >= maxResults && nextPageToken != "" {
+		result.NextPageToken = nextPageToken
+	}
 	return result, nil
+}
+
+// fetchSummaries retrieves metadata for the given message IDs concurrently.
+// Output order matches the input IDs; unreadable messages are skipped.
+func (s *Service) fetchSummaries(ctx context.Context, ids []string) ([]*EmailSummary, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	const workers = 10
+	type job struct {
+		idx int
+		id  string
+	}
+	jobs := make(chan job, len(ids))
+	for i, id := range ids {
+		jobs <- job{idx: i, id: id}
+	}
+	close(jobs)
+
+	summaries := make([]*EmailSummary, len(ids))
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				msg, err := s.lister.getMessageMetadata(ctx, j.id)
+				if err != nil {
+					continue // skip unreadable messages
+				}
+
+				summary := &EmailSummary{
+					ID:       msg.Id,
+					ThreadID: msg.ThreadId,
+					Snippet:  msg.Snippet,
+					LabelIDs: msg.LabelIds,
+				}
+				for _, h := range msg.Payload.Headers {
+					switch h.Name {
+					case "Subject":
+						summary.Subject = h.Value
+					case "From":
+						summary.From = h.Value
+					case "Date":
+						summary.Date = h.Value
+					}
+				}
+				summaries[j.idx] = summary
+			}
+		}()
+	}
+	wg.Wait()
+
+	out := make([]*EmailSummary, 0, len(ids))
+	for _, summary := range summaries {
+		if summary != nil {
+			out = append(out, summary)
+		}
+	}
+	return out, nil
+}
+
+// CountUnread counts unread messages with the given labels (commonly INBOX).
+// It auto-paginates through all matching message IDs, up to maxResults.
+// Returns exact count, the first-page estimate from Gmail, and whether the
+// result was truncated by maxResults.
+func (s *Service) CountUnread(ctx context.Context, labelIDs []string, maxResults int64) (count int64, estimate int64, truncated bool, err error) {
+	if maxResults <= 0 {
+		maxResults = 1000
+	}
+	if maxResults > 10000 {
+		maxResults = 10000
+	}
+	if s.lister == nil {
+		return 0, 0, false, fmt.Errorf("count unread: lister not configured")
+	}
+
+	var ids []string
+	var pageToken string
+	for int64(len(ids)) < maxResults {
+		remaining := maxResults - int64(len(ids))
+		callMax := remaining
+		if callMax > 500 {
+			callMax = 500
+		}
+
+		res, err := s.lister.listMessages(ctx, "is:unread", callMax, pageToken, labelIDs)
+		if err != nil {
+			return 0, 0, false, fmt.Errorf("count unread: %w", err)
+		}
+		if len(ids) == 0 {
+			estimate = res.ResultSizeEstimate
+		}
+
+		for _, m := range res.Messages {
+			ids = append(ids, m.Id)
+			if int64(len(ids)) >= maxResults {
+				break
+			}
+		}
+
+		if res.NextPageToken == "" {
+			break
+		}
+		if int64(len(ids)) >= maxResults {
+			break
+		}
+		pageToken = res.NextPageToken
+	}
+
+	return int64(len(ids)), estimate, int64(len(ids)) >= maxResults && pageToken != "", nil
 }
 
 // --- helpers ---

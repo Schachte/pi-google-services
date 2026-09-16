@@ -9,8 +9,8 @@ import (
 
 	gcal "google.golang.org/api/calendar/v3"
 
-	"github.com/sombi/pi-google-services/internal/calendar"
-	"github.com/sombi/pi-google-services/internal/mcp"
+	"github.com/Schachte/pi-google-services/internal/calendar"
+	"github.com/Schachte/pi-google-services/internal/mcp"
 )
 
 // CalendarService implements the Service interface for Google Calendar.

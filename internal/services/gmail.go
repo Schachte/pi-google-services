@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sombi/pi-google-services/internal/drive"
-	"github.com/sombi/pi-google-services/internal/gmail"
-	"github.com/sombi/pi-google-services/internal/mcp"
+	"github.com/Schachte/pi-google-services/internal/drive"
+	"github.com/Schachte/pi-google-services/internal/gmail"
+	"github.com/Schachte/pi-google-services/internal/mcp"
 )
 
 // GmailService implements the Service interface for Gmail.
@@ -39,6 +39,17 @@ func (s *GmailService) Scopes() []string {
 
 func (s *GmailService) Tools() []mcp.ToolDefinition {
 	return []mcp.ToolDefinition{
+		{
+			Name:        "count-unread-emails",
+			Description: "Count unread emails in a label. Auto-paginates through all matching messages up to a limit.",
+			InputSchema: mcp.InputSchema{
+				Type: "object",
+				Properties: map[string]mcp.PropertySchema{
+					"label":      {Type: "string", Description: "Gmail label to count unread messages in (default: INBOX)", Default: "INBOX"},
+					"maxResults": {Type: "number", Description: "Maximum unread messages to count (default: 1000, max: 10000)", Default: 1000},
+				},
+			},
+		},
 		{
 			Name:        "list-inbox",
 			Description: "List recent emails from inbox",
@@ -129,6 +140,8 @@ func (s *GmailService) Tools() []mcp.ToolDefinition {
 
 func (s *GmailService) Handle(ctx context.Context, toolName string, params json.RawMessage) (interface{}, *mcp.RPCError) {
 	switch toolName {
+	case "count-unread-emails":
+		return s.handleCountUnreadEmails(ctx, params)
 	case "list-inbox":
 		return s.handleListInbox(ctx, params)
 	case "get-email":
@@ -145,6 +158,33 @@ func (s *GmailService) Handle(ctx context.Context, toolName string, params json.
 }
 
 // --- handlers ---
+
+func (s *GmailService) handleCountUnreadEmails(ctx context.Context, params json.RawMessage) (interface{}, *mcp.RPCError) {
+	var args struct {
+		Label      string `json:"label"`
+		MaxResults int64  `json:"maxResults"`
+	}
+	if err := json.Unmarshal(params, &args); err != nil {
+		return nil, &mcp.RPCError{Code: -32602, Message: "Invalid arguments", Data: err.Error()}
+	}
+
+	label := args.Label
+	if label == "" {
+		label = "INBOX"
+	}
+
+	count, estimate, truncated, err := s.api.CountUnread(ctx, []string{label}, args.MaxResults)
+	if err != nil {
+		return nil, &mcp.RPCError{Code: -32603, Message: "Failed to count unread emails", Data: err.Error()}
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("📬 %d unread %s (Gmail estimate: %d)", count, label, estimate))
+	if truncated {
+		b.WriteString(fmt.Sprintf("\nCounted up to the %d-message limit; more unread messages remain.", args.MaxResults))
+	}
+	return contentResponse(b.String()), nil
+}
 
 func (s *GmailService) handleListInbox(ctx context.Context, params json.RawMessage) (interface{}, *mcp.RPCError) {
 	var args struct {
@@ -163,7 +203,7 @@ func (s *GmailService) handleListInbox(ctx context.Context, params json.RawMessa
 
 	var b strings.Builder
 	if len(res.Messages) == 0 {
-		b.WriteString("📭 Inbox vacío.")
+		b.WriteString("📭 Inbox is empty.")
 	} else {
 		for i, m := range res.Messages {
 			date := gmail.HumanDate(m.Date)
@@ -173,7 +213,7 @@ func (s *GmailService) handleListInbox(ctx context.Context, params json.RawMessa
 	}
 
 	if res.NextPageToken != "" {
-		b.WriteString(fmt.Sprintf("\nHay más resultados. Para la siguiente página, usá pageToken=%q.", res.NextPageToken))
+		b.WriteString(fmt.Sprintf("\nMore results. For the next page, use pageToken=%q.", res.NextPageToken))
 	}
 
 	return contentResponse(b.String()), nil
@@ -239,7 +279,7 @@ func (s *GmailService) handleSearchEmails(ctx context.Context, params json.RawMe
 	}
 
 	if res.NextPageToken != "" {
-		b.WriteString(fmt.Sprintf("\nHay más resultados. Usá pageToken=%q para la siguiente página.", res.NextPageToken))
+		b.WriteString(fmt.Sprintf("\nMore results. Use pageToken=%q for the next page.", res.NextPageToken))
 	}
 
 	return contentResponse(b.String()), nil

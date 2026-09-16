@@ -2,13 +2,13 @@
 
 ## v0.1.21
 
-- **Fix: `pi update --extensions` ya no falla con ETXTBSY** — `install.js` sobrescribía el binario en `~/.local/bin` con `fs.writeFileSync`, que en Linux no puede reemplazar un ejecutable en uso (el MCP server corriendo). Ahora escribe a un archivo temporal y hace `rename` atómico sobre el destino: el proceso viejo conserva su inode y el siguiente arranque usa el binario nuevo. Mismo patrón que `downloadUpdate` en `main.go`.
+- **Fix: `pi update --extensions` no longer fails with ETXTBSY** — `install.js` was overwriting the binary in `~/.local/bin` with `fs.writeFileSync`, which on Linux cannot replace an executable that is currently running (the MCP server). It now writes to a temporary file and performs an atomic `rename` onto the destination: the old process keeps its inode and the next launch uses the new binary. Same pattern as `downloadUpdate` in `main.go`.
 
 ## v0.1.20
 
-- **Fix (bug crítico): `search-emails` ya no restringe al label INBOX** — `SearchEmails` delegaba en `ListInbox`, que siempre aplicaba `labelIds=INBOX`. La API de Gmail combina `labelIds` y `q` con AND, así que toda búsqueda quedaba limitada a mensajes que además estuvieran en la bandeja de entrada. Por eso `in:sent`, `in:sent after:2026/09/01`, `to:alguien@gmail.com` y `from:a OR from:b` devolvían "No results" aunque los mensajes existieran, y `in:sent after:2026/08/01` solo devolvía los autoenviados (que están en INBOX y SENT). Ahora `search-emails` busca en todo el mailbox.
-- **Feature: paginación real** — `list-inbox` y `search-emails` aceptan `pageToken` y avisan cuando hay más resultados (devolviendo el token para continuar). Internamente se pagina con `nextPageToken` hasta completar `maxResults` (máx. 500).
-- **Refactor: `gmail.Service` usa una `messagesLister`** — abstrae `messages.list` + `messages.get` para poder testear la paginación sin red.
+- **Fix (critical bug): `search-emails` no longer restricts to the INBOX label** — `SearchEmails` was delegating to `ListInbox`, which always applied `labelIds=INBOX`. The Gmail API combines `labelIds` and `q` with AND, so every search was limited to messages that were also in the inbox. That's why `in:sent`, `in:sent after:2026/09/01`, `to:someone@gmail.com`, and `from:a OR from:b` returned "No results" even though the messages existed, and `in:sent after:2026/08/01` only returned self-sent messages (which are in both INBOX and SENT). Now `search-emails` searches the whole mailbox.
+- **Feature: real pagination** — `list-inbox` and `search-emails` accept `pageToken` and report when more results are available (returning the token to continue). Internally it paginates with `nextPageToken` until `maxResults` is reached (max 500).
+- **Refactor: `gmail.Service` uses a `messagesLister`** — abstracts `messages.list` + `messages.get` so pagination can be tested without network access.
 
 ## v0.1.19
 

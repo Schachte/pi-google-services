@@ -19,9 +19,9 @@ pi-google-services serve    # Start MCP server (done automatically by Pi)
 Show events in a date range.
 
 Examples:
-- "mostrame los eventos de mañana"
-- "qué tengo esta semana?"
-- "eventos del 20 al 25 de junio"
+- "show me tomorrow's events"
+- "what do I have this week?"
+- "events from June 20 to June 25"
 
 Arguments:
 - `timeMin` (ISO 8601) — start of range (default: today 00:00)
@@ -33,10 +33,10 @@ Arguments:
 Create a new calendar event with optional attendees and Google Meet.
 
 Examples:
-- "creá una reunión mañana a las 15"
-- "agendá una llamada con juan@gmail.com el jueves a las 10"
-- "creá un evento 'Cumpleaños' el 25/12 todo el día"
-- "creá un meet virtual mañana a las 16 con Meet"
+- "create a meeting tomorrow at 3 PM"
+- "schedule a call with juan@gmail.com on Thursday at 10 AM"
+- "create an all-day event 'Birthday' on 12/25"
+- "create a virtual meet tomorrow at 4 PM with Meet"
 
 Arguments:
 - `summary` (required) — event title
@@ -52,8 +52,8 @@ Arguments:
 Modify an existing event.
 
 Examples:
-- "cambiá la reunión de mañana a las 16"
-- "renombrá el evento de la cena a 'Cena con amigos'"
+- "move tomorrow's meeting to 4 PM"
+- "rename the dinner event to 'Dinner with friends'"
 
 Arguments:
 - `eventId` (required) — event to modify
@@ -64,8 +64,8 @@ Arguments:
 Remove an event.
 
 Examples:
-- "borrá el evento de prueba del viernes"
-- "eliminá la reunión de las 15"
+- "delete the test event on Friday"
+- "remove the 3 PM meeting"
 
 Arguments:
 - `eventId` (required) — event to delete
@@ -75,8 +75,8 @@ Arguments:
 Search events by text.
 
 Examples:
-- "buscá eventos de 'reunión'"
-- "encontrá cuando hablé de 'presentación'"
+- "search for events about 'meeting'"
+- "find when I talked about 'presentation'"
 
 Arguments:
 - `query` (required) — text to search
@@ -86,15 +86,15 @@ Arguments:
 List all available calendars.
 
 Examples:
-- "mostrame mis calendarios"
-- "qué calendarios tengo?"
+- "show me my calendars"
+- "what calendars do I have?"
 
 ### `get-freebusy`
 Check availability across calendars.
 
 Examples:
-- "estoy libre mañana a las 15?"
-- "qué horarios tengo ocupados esta semana?"
+- "am I free tomorrow at 3 PM?"
+- "what times am I busy this week?"
 
 Arguments:
 - `timeMin`, `timeMax` — range to check
@@ -106,9 +106,9 @@ Arguments:
 List recent inbox messages.
 
 Examples:
-- "mostrame mis emails"
-- "qué hay en mi bandeja de entrada?"
-- "mostrame los últimos 5 emails de LinkedIn"
+- "show me my emails"
+- "what's in my inbox?"
+- "show me the last 5 LinkedIn emails"
 
 Arguments:
 - `maxResults` — max emails (default: 20)
@@ -119,8 +119,8 @@ Arguments:
 Read a full email by ID.
 
 Examples:
-- "leé el primer email de la lista"
-- "mostrame el contenido completo del mail de belo"
+- "read the first email in the list"
+- "show me the full content of belo's email"
 
 Arguments:
 - `id` (required) — email message ID
@@ -129,10 +129,10 @@ Arguments:
 Search emails with Gmail syntax across the whole mailbox (sent, inbox, etc.).
 
 Examples:
-- "buscá emails de belo"
-- "encontrá mails sobre 'Uber' de esta semana"
-- "mostrame los no leídos"
-- "mostrame los emails que envié en agosto" (`query: in:sent after:2026/08/01`)
+- "search for emails from belo"
+- "find emails about 'Uber' from this week"
+- "show me unread emails"
+- "show me emails I sent in August" (`query: in:sent after:2026/08/01`)
 
 Arguments:
 - `query` (required) — Gmail search query
@@ -143,9 +143,9 @@ Arguments:
 Send a new email with optional file attachments.
 
 Examples:
-- "enviále un mail a lucsk94@gmail.com con asunto 'Prueba' y cuerpo 'Hola, esto es una prueba'"
-- "mandále un email a juan@mail.com diciendo que la reunión se pasó al viernes"
-- "enviále un email a maria@work.com con el PDF /home/user/reporte.pdf adjunto"
+- "send an email to lucsk94@gmail.com with subject 'Test' and body 'Hi, this is a test'"
+- "send an email to juan@mail.com saying the meeting was moved to Friday"
+- "send an email to maria@work.com with the PDF /home/user/report.pdf attached"
 
 Arguments:
 - `to` (required) — recipient email
@@ -157,9 +157,9 @@ Arguments:
 Reply to an existing thread with optional file attachments.
 
 Examples:
-- "respondé el mail de Natalia aceptando la invitación"
-- "contestále al de belo que ya lo vi"
-- "respondé al mail de ventas adjuntando /home/user/cotizacion.pdf"
+- "reply to Natalia's email accepting the invitation"
+- "reply to belo's email saying I already saw it"
+- "reply to the sales email attaching /home/user/quote.pdf"
 
 Arguments:
 - `threadId` (required) — thread to reply to
@@ -174,15 +174,15 @@ Arguments:
 Show all task lists.
 
 Examples:
-- "mostrame mis listas de tareas"
+- "show me my task lists"
 
 ### `list-tasks`
 List tasks (pending, completed, or all).
 
 Examples:
-- "mostrame mis tareas pendientes"
-- "qué tareas tengo para hacer?"
-- "mostrame las tareas completadas"
+- "show me my pending tasks"
+- "what tasks do I have to do?"
+- "show me completed tasks"
 
 Arguments:
 - `taskListId` — task list ID (default: @default)
@@ -193,8 +193,8 @@ Arguments:
 Create a new task.
 
 Examples:
-- "creá una tarea para comprar leche"
-- "agendá 'llamar al dentista' para mañana"
+- "create a task to buy milk"
+- "schedule 'call the dentist' for tomorrow"
 
 Arguments:
 - `title` (required) — task title
@@ -206,8 +206,8 @@ Arguments:
 Mark a task as done.
 
 Examples:
-- "marcá como hecha la tarea de la leche"
-- "completá la tarea del dentista"
+- "mark the milk task as done"
+- "complete the dentist task"
 
 Arguments:
 - `taskId` (required) — task to complete
@@ -217,7 +217,7 @@ Arguments:
 Delete a task.
 
 Examples:
-- "borrá la tarea de prueba"
+- "delete the test task"
 
 Arguments:
 - `taskId` (required) — task to delete

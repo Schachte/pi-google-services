@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sombi/pi-google-services/internal/drive"
-	"github.com/sombi/pi-google-services/internal/mcp"
+	"github.com/Schachte/pi-google-services/internal/drive"
+	"github.com/Schachte/pi-google-services/internal/mcp"
 )
 
 // DriveService implements the Service interface for Google Drive.
